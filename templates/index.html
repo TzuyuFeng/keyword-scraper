@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}電商熱賣搜尋器{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-body p-4">
+        <h4 class="card-title mb-4 text-center">
+          <i class="bi bi-fire text-danger me-2"></i>搜尋各平台熱賣商品
+        </h4>
+
+        <form action="{{ url_for('search') }}" method="post">
+          <!-- 關鍵字 -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">搜尋關鍵字</label>
+            <input type="text" class="form-control form-control-lg"
+                   name="keyword" placeholder="例如：無線耳機、保溫杯、瑜珈墊..."
+                   required autofocus>
+          </div>
+
+          <!-- 平台複選 -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">選擇電商平台（可複選）</label>
+            <div class="row g-3">
+              {% for key, name in platforms.items() %}
+              <div class="col-4">
+                <input type="checkbox" class="btn-check" name="platforms"
+                       id="platform_{{ key }}" value="{{ key }}" checked>
+                <label class="btn btn-outline-primary w-100 platform-btn"
+                       for="platform_{{ key }}">
+                  {% if key == 'shopee' %}
+                    <i class="bi bi-bag-heart me-1"></i>
+                  {% elif key == 'pchome' %}
+                    <i class="bi bi-pc-display me-1"></i>
+                  {% else %}
+                    <i class="bi bi-shop me-1"></i>
+                  {% endif %}
+                  {{ name }}
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-danger btn-lg w-100">
+            <i class="bi bi-search me-2"></i>開始搜尋前10名熱賣商品
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <p class="text-muted text-center mt-3 small">
+      <i class="bi bi-info-circle me-1"></i>
+      搜尋結果依各平台銷量排序，約需 5-15 秒
+    </p>
+  </div>
+</div>
+{% endblock %}
