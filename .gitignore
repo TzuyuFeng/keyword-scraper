@@ -14,3 +14,6 @@ token.json
 debug*.py
 debug*.png
 debug*.html
+
+# Claude 本機指引（不上傳 GitHub）
+CLAUDE.md
