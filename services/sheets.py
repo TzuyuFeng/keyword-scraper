@@ -7,6 +7,8 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
+SHEET_TITLE = "電商熱賣搜尋結果"
+
 def get_client():
     cred_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "credentials.json")
     if not os.path.exists(cred_path):
@@ -14,24 +16,22 @@ def get_client():
     creds = Credentials.from_service_account_file(cred_path, scopes=SCOPES)
     return gspread.authorize(creds)
 
-def cleanup_old_sheets(client):
-    """刪除服務帳戶 Drive 中所有舊的搜尋試算表，避免超出配額"""
-    try:
-        files = client.list_spreadsheet_files()
-        for f in files:
-            if "熱賣商品搜尋" in f.get("name", ""):
-                client.del_spreadsheet(f["id"])
-    except Exception:
-        pass  # 清理失敗不影響主流程
-
 def export(keyword, results_by_platform):
     client = get_client()
-    title = f"熱賣商品搜尋 - {keyword}"
 
-    # 建立前先清理舊試算表，釋放 Drive 空間
-    cleanup_old_sheets(client)
-
-    spreadsheet = client.create(title)
+    # 取得或建立固定試算表（Drive 只保留一份）
+    try:
+        spreadsheet = client.open(SHEET_TITLE)
+        # 刪除所有多餘工作表，只保留第一個
+        worksheets = spreadsheet.worksheets()
+        for ws in worksheets[1:]:
+            spreadsheet.del_worksheet(ws)
+        spreadsheet.sheet1.clear()
+        spreadsheet.sheet1.update_title("工作表1")  # 重設名稱以備後續重命名
+    except gspread.exceptions.SpreadsheetNotFound:
+        spreadsheet = client.create(SHEET_TITLE)
+        # 新建後設為任何人可讀
+        spreadsheet.share(None, perm_type="anyone", role="reader")
 
     first = True
     for platform, products in results_by_platform.items():
@@ -40,7 +40,7 @@ def export(keyword, results_by_platform):
             ws.update_title(platform)
             first = False
         else:
-            ws = spreadsheet.add_worksheet(title=platform, rows=50, cols=10)
+            ws = spreadsheet.add_worksheet(title=platform, rows=100, cols=10)
 
         headers = ["排名", "圖片", "商品名稱", "價格(NT$)", "銷量", "商品連結"]
         ws.append_row(headers)
@@ -56,11 +56,8 @@ def export(keyword, results_by_platform):
                 p.get("product_url", "")
             ])
 
-        # 調整列高讓圖片可見
+        # 標題列加粗、凍結
         ws.format("A1:F1", {"textFormat": {"bold": True}})
         ws.freeze(rows=1)
-
-    # 設定試算表為任何人可讀（方便分享）
-    spreadsheet.share(None, perm_type="anyone", role="reader")
 
     return spreadsheet.url

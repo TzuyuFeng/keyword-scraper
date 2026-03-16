@@ -2,7 +2,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
 import requests as req
-from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, send_file
 from flask_session import Session
 from dotenv import load_dotenv
 
@@ -106,21 +106,24 @@ def results():
 @app.route("/export", methods=["POST"])
 def export():
     results = session.get("results", {})
-    keyword = session.get("keyword", "")
+    keyword = session.get("keyword", "搜尋結果")
     if not results:
         flash("沒有可匯出的資料", "warning")
         return redirect(url_for("index"))
 
     try:
-        from services.sheets import export as sheets_export
-        sheet_url = sheets_export(keyword, results)
-        flash(f'匯出成功！<a href="{sheet_url}" target="_blank">點此開啟 Google 試算表</a>', "success")
-    except FileNotFoundError as e:
-        flash(str(e), "danger")
+        from services.excel import export as excel_export
+        output = excel_export(keyword, results)
+        filename = f"熱賣商品_{keyword}.xlsx"
+        return send_file(
+            output,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name=filename,
+        )
     except Exception as e:
         flash(f"匯出失敗：{str(e)}", "danger")
-
-    return redirect(url_for("results"))
+        return redirect(url_for("results"))
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)

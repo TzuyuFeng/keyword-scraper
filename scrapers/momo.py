@@ -31,8 +31,15 @@ def search(keyword, limit=10):
                     if (!name) continue;
                     const priceEl = el.querySelector(".price b") || el.querySelector("b.price") || el.querySelector("[class*='price'] b");
                     const price = priceEl?.innerText?.trim().replace(/,/g, "") || "0";
-                    const imgEl = el.querySelector("img");
-                    const img = imgEl?.src || imgEl?.dataset?.src || "";
+                    // Momo 商品主圖 URL 路徑含 /goods/，促銷 badge 不含
+                    let img = "";
+                    const imgCandidates = el.querySelectorAll("img");
+                    for (const imgEl of imgCandidates) {{
+                        const src = imgEl?.src || imgEl?.dataset?.src || imgEl?.dataset?.lazySrc || "";
+                        if (!src) continue;
+                        if (/goodsimg/i.test(src)) {{ img = src; break; }}
+                        if (!img && /momoshop\.com\.tw/i.test(src)) img = src;
+                    }}
                     const linkEl = el.querySelector("a[href*='goods'], a[href*='product'], a[href*='GoodsDetail']");
                     const href = linkEl?.href || "";
                     out.push({{ name, price, img, href }});
