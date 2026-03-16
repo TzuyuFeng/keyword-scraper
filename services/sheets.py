@@ -14,9 +14,23 @@ def get_client():
     creds = Credentials.from_service_account_file(cred_path, scopes=SCOPES)
     return gspread.authorize(creds)
 
+def cleanup_old_sheets(client):
+    """刪除服務帳戶 Drive 中所有舊的搜尋試算表，避免超出配額"""
+    try:
+        files = client.list_spreadsheet_files()
+        for f in files:
+            if "熱賣商品搜尋" in f.get("name", ""):
+                client.del_spreadsheet(f["id"])
+    except Exception:
+        pass  # 清理失敗不影響主流程
+
 def export(keyword, results_by_platform):
     client = get_client()
     title = f"熱賣商品搜尋 - {keyword}"
+
+    # 建立前先清理舊試算表，釋放 Drive 空間
+    cleanup_old_sheets(client)
+
     spreadsheet = client.create(title)
 
     first = True
