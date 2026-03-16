@@ -1,65 +1,71 @@
-import requests
-import time
-from bs4 import BeautifulSoup
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "zh-TW,zh;q=0.9"
-}
+from urllib.parse import quote
+from playwright.sync_api import sync_playwright
 
 def search(keyword, limit=10):
-    url = "https://www.momoshop.com.tw/search/searchShop.jsp"
-    params = {
-        "keyword": keyword,
-        "searchType": 1,
-        "curPage": 1,
-        "_isFuzzy": 0,
-        "showType": "chessBoard"
-    }
-
+    products = []
     try:
-        resp = requests.get(url, params=params, headers=HEADERS, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+            )
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                locale="zh-TW",
+                viewport={"width": 1280, "height": 800}
+            )
+            context.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
+            )
+            page = context.new_page()
+            url = f"https://www.momoshop.com.tw/search/searchShop.jsp?keyword={quote(keyword)}&searchType=1&curPage=1&_isFuzzy=0&showType=chessBoard"
+            page.goto(url, timeout=30000)
+            page.wait_for_timeout(5000)
+
+            data = page.evaluate(f"""() => {{
+                const items = document.querySelectorAll("li.listAreaLi");
+                const out = [];
+                for (let i = 0; i < Math.min({limit}, items.length); i++) {{
+                    const el = items[i];
+                    const name = el.querySelector(".prdName")?.innerText?.trim() || "";
+                    if (!name) continue;
+                    const priceEl = el.querySelector(".price b") || el.querySelector("b.price") || el.querySelector("[class*='price'] b");
+                    const price = priceEl?.innerText?.trim().replace(/,/g, "") || "0";
+                    const imgEl = el.querySelector("img");
+                    const img = imgEl?.src || imgEl?.dataset?.src || "";
+                    const linkEl = el.querySelector("a[href*='goods'], a[href*='product'], a[href*='GoodsDetail']");
+                    const href = linkEl?.href || "";
+                    out.push({{ name, price, img, href }});
+                }}
+                return out;
+            }}""")
+
+            browser.close()
+
+        for i, item in enumerate(data, start=1):
+            try:
+                price = int(item.get("price", "0").replace(",", ""))
+            except ValueError:
+                price = 0
+
+            image_url = item.get("img", "")
+            # 確保圖片 URL 完整
+            if image_url and not image_url.startswith("http"):
+                image_url = "https:" + image_url
+
+            products.append({
+                "platform": "Momo",
+                "rank": i,
+                "name": item.get("name", ""),
+                "price": price,
+                "sales": "N/A",
+                "image_url": image_url,
+                "product_url": item.get("href", "")
+            })
+
     except Exception as e:
         return [{"error": str(e)}]
 
-    products = []
-    items = soup.select("li.goodsItemLi")[:limit]
-
-    for i, item in enumerate(items, start=1):
-        name_tag = item.select_one(".prdName")
-        price_tag = item.select_one(".money em") or item.select_one(".price em")
-        img_tag = item.select_one("img.lazy") or item.select_one("img")
-        link_tag = item.select_one("a")
-
-        name = name_tag.get_text(strip=True) if name_tag else ""
-        price_text = price_tag.get_text(strip=True).replace(",", "") if price_tag else "0"
-        try:
-            price = int(price_text)
-        except ValueError:
-            price = 0
-
-        image_url = ""
-        if img_tag:
-            image_url = img_tag.get("data-src") or img_tag.get("src", "")
-            if image_url.startswith("//"):
-                image_url = "https:" + image_url
-
-        product_url = ""
-        if link_tag:
-            href = link_tag.get("href", "")
-            product_url = "https://www.momoshop.com.tw" + href if href.startswith("/") else href
-
-        products.append({
-            "platform": "Momo",
-            "rank": i,
-            "name": name,
-            "price": price,
-            "sales": "N/A",
-            "image_url": image_url,
-            "product_url": product_url
-        })
-
-    time.sleep(0.5)
+    if not products:
+        return [{"error": "Momo 搜尋結果為空"}]
     return products

@@ -24,14 +24,12 @@
             <label class="form-label fw-semibold">選擇電商平台（可複選）</label>
             <div class="row g-3">
               {% for key, name in platforms.items() %}
-              <div class="col-4">
+              <div class="col-6">
                 <input type="checkbox" class="btn-check" name="platforms"
                        id="platform_{{ key }}" value="{{ key }}" checked>
                 <label class="btn btn-outline-primary w-100 platform-btn"
                        for="platform_{{ key }}">
-                  {% if key == 'shopee' %}
-                    <i class="bi bi-bag-heart me-1"></i>
-                  {% elif key == 'pchome' %}
+                  {% if key == 'pchome' %}
                     <i class="bi bi-pc-display me-1"></i>
                   {% else %}
                     <i class="bi bi-shop me-1"></i>
@@ -43,8 +41,28 @@
             </div>
           </div>
 
+          <!-- 搜尋數量 -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">
+              搜尋數量
+              <span class="text-muted fw-normal small ms-1">（上限 {{ max_limit }} 筆）</span>
+            </label>
+            <div class="d-flex align-items-center gap-3">
+              <input type="range" class="form-range flex-grow-1"
+                     name="limit" id="limitRange"
+                     min="5" max="{{ max_limit }}" step="5" value="10"
+                     oninput="document.getElementById('limitVal').textContent = this.value">
+              <span class="badge bg-danger fs-6 px-3" id="limitVal">10</span>
+              <span class="text-muted small">筆</span>
+            </div>
+            <div class="d-flex justify-content-between text-muted small mt-1">
+              <span>5</span>
+              <span>{{ max_limit }}</span>
+            </div>
+          </div>
+
           <button type="submit" class="btn btn-danger btn-lg w-100">
-            <i class="bi bi-search me-2"></i>開始搜尋前10名熱賣商品
+            <i class="bi bi-search me-2"></i>開始搜尋熱賣商品
           </button>
         </form>
       </div>
@@ -52,7 +70,7 @@
 
     <p class="text-muted text-center mt-3 small">
       <i class="bi bi-info-circle me-1"></i>
-      搜尋結果依各平台銷量排序，約需 5-15 秒
+      PChome 約 3-5 秒；Momo 使用瀏覽器模擬約 15-20 秒
     </p>
   </div>
 </div>
